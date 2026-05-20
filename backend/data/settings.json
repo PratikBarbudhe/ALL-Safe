@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "system": {
+    "auto_start_monitoring": true,
+    "auto_start_with_windows": false,
+    "minimize_to_tray": true,
+    "background_monitoring": true
+  },
+  "notifications": {
+    "desktop_notifications": true,
+    "threat_notifications": true,
+    "scan_complete_notifications": true,
+    "update_notifications": true,
+    "weekly_reports": false,
+    "critical_alert_popups": true,
+    "sound_alerts": false,
+    "notification_retention_days": 30
+  },
+  "ransomware": {
+    "monitoring_enabled": true,
+    "auto_quarantine": true,
+    "sensitivity_level": "medium",
+    "protected_folders": []
+  },
+  "usb": {
+    "monitoring_enabled": true,
+    "trusted_devices_only": false,
+    "alert_unknown_devices": true,
+    "auto_scan_on_connect": true
+  },
+  "ai_analysis": {
+    "auto_analysis": true,
+    "analysis_interval_seconds": 60,
+    "risk_threshold": 60
+  },
+  "dashboard": {
+    "refresh_interval_ms": 5000,
+    "chart_history_limit": 7
+  },
+  "quarantine": {
+    "auto_quarantine_threats": true,
+    "confirm_before_restore": true,
+    "confirm_before_delete": true
+  },
+  "logging": {
+    "log_retention_days": 30,
+    "verbose_logging": false
+  },
+  "scan": {
+    "scan_archives": true,
+    "heuristic_analysis": true
+  },
+  "update": {
+    "automatic_updates": true,
+    "auto_update_threat_database": true,
+    "beta_updates": false
+  },
+  "ui": {
+    "theme": "dark",
+    "accent_color": "#3B82F6"
+  },
+  "advanced": {
+    "debug_mode": false,
+    "send_anonymous_usage_data": false
+  }
+}

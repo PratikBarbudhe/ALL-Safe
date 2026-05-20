@@ -87,6 +87,21 @@ class RansomwareService:
 
     def _load_settings(self) -> RansomwareSettings:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
+        try:
+            from services.settings_service import settings_service
+
+            rw = settings_service.settings.ransomware
+            folders = rw.protected_folders or [
+                str(p) for p in RansomwareMonitor.resolve_default_folders()
+            ]
+            return RansomwareSettings(
+                monitoring_enabled=rw.monitoring_enabled,
+                auto_quarantine=rw.auto_quarantine,
+                sensitivity=rw.sensitivity_level,
+                protected_folders=folders,
+            )
+        except Exception:
+            logger.debug("Central settings unavailable, loading legacy ransomware file")
         if SETTINGS_FILE.exists():
             try:
                 data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
@@ -94,15 +109,26 @@ class RansomwareService:
             except (OSError, json.JSONDecodeError, ValueError) as exc:
                 logger.warning("Invalid ransomware settings, using defaults: %s", exc)
         folders = [str(p) for p in RansomwareMonitor.resolve_default_folders()]
-        settings = RansomwareSettings(protected_folders=folders)
-        self._save_settings(settings)
-        return settings
+        return RansomwareSettings(protected_folders=folders)
 
     def _save_settings(self, settings: RansomwareSettings) -> None:
-        SETTINGS_FILE.write_text(
-            settings.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
+        try:
+            from services.settings_service import settings_service
+
+            settings_service.merge_group(
+                "ransomware",
+                {
+                    "monitoring_enabled": settings.monitoring_enabled,
+                    "auto_quarantine": settings.auto_quarantine,
+                    "sensitivity_level": settings.sensitivity,
+                    "protected_folders": settings.protected_folders,
+                },
+            )
+        except Exception:
+            SETTINGS_FILE.write_text(
+                settings.model_dump_json(indent=2),
+                encoding="utf-8",
+            )
 
     def _init_database(self) -> None:
         with self._db_lock:
@@ -212,6 +238,14 @@ class RansomwareService:
     def get_settings(self) -> RansomwareSettings:
         return self._settings
 
+    def has_recent_critical_activity(self) -> bool:
+        """True if critical ransomware activity occurred since last health poll."""
+        with self._state_lock:
+            if self._recent_critical:
+                self._recent_critical = False
+                return True
+            return False
+
     def _on_detection(self, detection: RansomwareDetection) -> None:
         try:
             self._handle_detection(detection)
@@ -314,6 +348,29 @@ class RansomwareService:
             description=f"[Ransomware] {detection.description}",
         )
         threat_log_service.sync_dashboard_counters()
+        try:
+            from models.notification_models import NotificationCategory
+            from services.notification_service import (
+                map_threat_severity_to_notification,
+                notification_service,
+            )
+
+            notification_service.emit(
+                title=f"Ransomware: {detection.threat_name}",
+                message=detection.description,
+                severity=map_threat_severity_to_notification(detection.severity),
+                category=NotificationCategory.RANSOMWARE.value,
+                source_module="ransomware",
+                action_required=detection.severity in ("high", "critical"),
+                metadata={
+                    "file_path": detection.file_path,
+                    "heuristic": detection.heuristic_type,
+                    "quarantined": quarantined,
+                },
+                dedupe_key=f"ransomware:{detection.file_path}:{detection.heuristic_type}",
+            )
+        except Exception:
+            logger.exception("Failed to emit ransomware notification")
 
     def get_events(self, limit: int = 50) -> RansomwareEventListResponse:
         limit = max(1, min(limit, 200))

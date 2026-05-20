@@ -6,6 +6,7 @@ import uuid
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from models.usb_models import (
     UsbDevice,
@@ -35,6 +36,10 @@ class UsbService:
     _lock = threading.Lock()
 
     def __init__(self) -> None:
+        self._monitoring_enabled = True
+        self._trusted_devices_only = False
+        self._alert_unknown_devices = True
+        self._auto_scan_on_connect = True
         self._monitor = UsbMonitor()
         self._connected: dict[str, UsbDevice] = {}
         self._first_seen: dict[str, datetime] = {}
@@ -103,7 +108,15 @@ class UsbService:
             logger.warning("Failed to load blocked USB policy %s: %s", path, exc)
             return set(), set()
 
+    def apply_preferences(self, prefs: Any) -> None:
+        self._monitoring_enabled = prefs.monitoring_enabled
+        self._trusted_devices_only = prefs.trusted_devices_only
+        self._alert_unknown_devices = prefs.alert_unknown_devices
+        self._auto_scan_on_connect = prefs.auto_scan_on_connect
+
     def start_background_monitor(self) -> None:
+        if not self._monitoring_enabled:
+            return
         if self._thread and self._thread.is_alive():
             return
         self._stop_event.clear()
@@ -206,6 +219,9 @@ class UsbService:
         if device_id in self._trusted_ids or serial in self._trusted_serials:
             return "trusted", [], False, False
 
+        if self._trusted_devices_only:
+            return "suspicious", ["Device not on trusted list"], False, True
+
         if serial:
             if serial in self._serial_registry and self._serial_registry[serial] != device_id:
                 is_duplicate = True
@@ -250,6 +266,47 @@ class UsbService:
             device.drive_letter or "N/A",
             device.protection_status,
         )
+        if self._alert_unknown_devices or device.protection_status != "unknown":
+            self._emit_usb_notification(device, event_type)
+
+    def _emit_usb_notification(self, device: UsbDevice, event_type: str) -> None:
+        try:
+            from models.notification_models import NotificationCategory, NotificationSeverity
+            from services.notification_service import notification_service
+
+            status = device.protection_status
+            if event_type == "removed":
+                severity = NotificationSeverity.INFO.value
+                title = "USB Device Removed"
+            elif status in ("suspicious", "blocked") or device.is_unauthorized:
+                severity = NotificationSeverity.HIGH.value
+                title = "Suspicious USB Device"
+            elif status == "recently_connected":
+                severity = NotificationSeverity.WARNING.value
+                title = "USB Device Connected"
+            else:
+                severity = NotificationSeverity.INFO.value
+                title = "USB Device Connected"
+
+            drive = device.drive_letter or "N/A"
+            message = f"{device.name} ({drive}) — {event_type}, status: {status}"
+            notification_service.emit(
+                title=title,
+                message=message,
+                severity=severity,
+                category=NotificationCategory.USB_SECURITY.value,
+                source_module="usb_monitor",
+                action_required=severity == NotificationSeverity.HIGH.value,
+                metadata={
+                    "device_id": device.device_id,
+                    "event_type": event_type,
+                    "protection_status": status,
+                },
+                show_toast=severity != NotificationSeverity.INFO.value,
+                dedupe_key=f"usb:{device.device_id}:{event_type}:{status}",
+            )
+        except Exception:
+            logger.exception("Failed to emit USB notification")
 
     async def get_devices(self) -> UsbDeviceListResponse:
         return await asyncio.to_thread(self._build_device_response)

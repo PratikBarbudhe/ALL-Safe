@@ -72,6 +72,7 @@ class DashboardService:
             security_score = windows_defender_service.calculate_security_score_adjustment(
                 security_score, win_sec
             )
+            security_score = self._blend_ai_security_score(security_score)
 
             system_health = self._resolve_system_health(
                 security_score=security_score,
@@ -107,6 +108,19 @@ class DashboardService:
             raise DashboardServiceError(
                 "Unable to assemble dashboard overview"
             ) from exc
+
+    @staticmethod
+    def _blend_ai_security_score(base_score: int) -> int:
+        """Blend dashboard score with cached local intelligence score when available."""
+        try:
+            from services.ai_analysis_service import ai_analysis_service
+
+            ai_score = ai_analysis_service.get_cached_score()
+            if ai_score is None:
+                return base_score
+            return max(0, min(100, int(round((base_score + ai_score) / 2))))
+        except Exception:
+            return base_score
 
     @staticmethod
     def _calculate_security_score(

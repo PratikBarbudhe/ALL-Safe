@@ -154,6 +154,25 @@ class QuarantineService:
             )
         except Exception:
             logger.exception("Failed to write threat log for quarantine action")
+        try:
+            from models.notification_models import NotificationCategory
+            from services.notification_service import (
+                map_threat_severity_to_notification,
+                notification_service,
+            )
+
+            notification_service.emit(
+                title=f"Quarantine: {event_type.replace('_', ' ').title()}",
+                message=description,
+                severity=map_threat_severity_to_notification(severity),
+                category=NotificationCategory.QUARANTINE.value,
+                source_module="quarantine",
+                action_required=event_type == "quarantined",
+                metadata={"file_path": file_path, "event_type": event_type},
+                dedupe_key=f"quarantine:{file_path}:{event_type}",
+            )
+        except Exception:
+            logger.exception("Failed to emit quarantine notification")
         if source_event_id:
             self._log_audit(f"linked_source_event={source_event_id}")
 

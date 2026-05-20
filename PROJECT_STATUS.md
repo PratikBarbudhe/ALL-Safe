@@ -2,7 +2,7 @@
 
 > **AI instruction:** Read this file completely before continuing development.
 
-Last updated to reflect the repository as of Phase 9 completion (Windows Defender & Security Center integration).
+Last updated to reflect the repository as of Phase 13 completion (production hardening, lifecycle, tray, packaging).
 
 ---
 
@@ -20,6 +20,10 @@ Last updated to reflect the repository as of Phase 9 completion (Windows Defende
 
 ### Current development stage
 
+- **Phase 13 complete:** Application lifecycle, background/tray mode, performance monitoring, production packaging (NSIS/MSI/portable), bundled backend sidecar build
+- **Phase 12 complete:** Centralized Settings (`/settings/*`, `backend/data/settings.json`)
+- **Phase 11 complete:** Local AI Analysis engine (`/ai-analysis/*`)
+- **Phase 10 complete:** Notification center (`/notifications/*`)
 - **Phase 9 complete:** Native Windows Defender/Firewall/TPM integration, dashboard + Settings live status
 - **Phase 8 complete:** Ransomware heuristic detection, auto-quarantine, live Ransomware Detection UI
 - **Phase 7 complete:** Real quarantine engine (file isolation, restore, delete, SQLite + metadata)
@@ -73,7 +77,7 @@ Windows APIs / Monitoring Services
 | Persistence | SQLite | `backend/data/threat_logs.db` |
 | Policy files | JSON | USB trusted/blocked device lists |
 
-**Note:** Tauri currently wraps the React UI only. The FastAPI backend must be started separately as a local process.
+**Note:** In production builds, Tauri spawns the `allsafe-api` sidecar automatically. In dev, start the backend manually or via `tauri dev` (Python fallback spawn).
 
 ---
 

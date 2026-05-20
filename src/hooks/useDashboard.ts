@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRefreshIntervals } from '@/contexts/SettingsContext';
 import {
   ApiError,
-  REFRESH_INTERVAL_MS,
   fetchDashboardOverview,
   fetchProcesses,
   fetchThreatStats,
@@ -9,8 +9,6 @@ import {
   type DashboardOverview,
   type ProcessViewModel,
 } from '@/lib/api';
-
-const HISTORY_LENGTH = 7;
 
 export interface ChartPoint {
   time: string;
@@ -41,6 +39,7 @@ function computePercentChange(current: number, previous: number | undefined): nu
 }
 
 export function useDashboard() {
+  const { dashboardMs, chartHistoryLimit } = useRefreshIntervals();
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [recentProcesses, setRecentProcesses] = useState<ProcessViewModel[]>([]);
   const [performanceHistory, setPerformanceHistory] = useState<ChartPoint[]>([]);
@@ -89,13 +88,13 @@ export function useDashboard() {
       const chartTime = formatChartTime(new Date(now));
       setPerformanceHistory((prev) =>
         [...prev, { time: chartTime, cpu: overviewData.cpu_usage, ram: overviewData.ram_usage }].slice(
-          -HISTORY_LENGTH,
+          -chartHistoryLimit,
         ),
       );
       const threatChartValue =
         threatStats?.events_last_24h ?? overviewData.active_threats;
       setThreatHistory((prev) =>
-        [...prev, { time: chartTime, threats: threatChartValue }].slice(-HISTORY_LENGTH),
+        [...prev, { time: chartTime, threats: threatChartValue }].slice(-chartHistoryLimit),
       );
 
       if (previousOverview.current) {
@@ -136,9 +135,9 @@ export function useDashboard() {
     void loadDashboard();
     const intervalId = window.setInterval(() => {
       void loadDashboard({ silent: true });
-    }, REFRESH_INTERVAL_MS);
+    }, dashboardMs);
     return () => window.clearInterval(intervalId);
-  }, [loadDashboard]);
+  }, [loadDashboard, dashboardMs]);
 
   return {
     overview,

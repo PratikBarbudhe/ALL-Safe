@@ -7,7 +7,7 @@ class Settings:
     """Application settings (override via ALLSAFE_* environment variables)."""
 
     app_name: str = "AllSafe Security API"
-    app_version: str = "0.1.0"
+    app_version: str = "1.0.0"
     debug: bool = field(
         default_factory=lambda: os.getenv("ALLSAFE_DEBUG", "false").lower()
         == "true"

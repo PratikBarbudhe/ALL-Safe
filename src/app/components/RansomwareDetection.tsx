@@ -1,6 +1,8 @@
 import { AlertTriangle, Shield, FileText, TrendingUp, RefreshCw } from 'lucide-react';
 import { useRansomware } from '@/hooks/useRansomware';
 import { formatRelativeThreatTime, formatNumber } from '@/lib/format';
+import { useModuleAlerts } from '@/contexts/NotificationContext';
+import NotificationAlertStrip from './NotificationAlertStrip';
 
 const statusColors: Record<string, { bg: string; color: string; dot: string }> = {
   Protected: { bg: '#10B98120', color: '#10B981', dot: 'bg-green-500' },
@@ -47,6 +49,8 @@ export default function RansomwareDetection() {
     saveSettings,
   } = useRansomware();
 
+  const { criticalCount, latest: ransomwareAlert } = useModuleAlerts('Ransomware');
+
   const protectionLabel = status?.protection_status ?? 'Monitoring';
   const protectionStyle = statusColors[protectionLabel] ?? statusColors.Monitoring;
   const isActive = status?.monitoring_active ?? false;
@@ -72,6 +76,13 @@ export default function RansomwareDetection() {
             Retry
           </button>
         </div>
+      )}
+
+      {criticalCount > 0 && ransomwareAlert && (
+        <NotificationAlertStrip
+          severity={ransomwareAlert.severity}
+          message={`${criticalCount} ransomware alert${criticalCount === 1 ? '' : 's'} — ${ransomwareAlert.title}`}
+        />
       )}
 
       {notice && (

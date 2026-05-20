@@ -349,6 +349,33 @@ class WindowsDefenderService:
     def get_system_protection(self) -> SystemProtectionResponse:
         return self.get_full_status().system_protection
 
+    def _emit_scan_notification(
+        self,
+        *,
+        title: str,
+        message: str,
+        category_scan: bool = True,
+    ) -> None:
+        try:
+            from models.notification_models import NotificationCategory, NotificationSeverity
+            from services.notification_service import notification_service
+
+            notification_service.emit(
+                title=title,
+                message=message,
+                severity=NotificationSeverity.INFO.value,
+                category=(
+                    NotificationCategory.SCAN_RESULTS.value
+                    if category_scan
+                    else NotificationCategory.WINDOWS_SECURITY.value
+                ),
+                source_module="windows_security",
+                show_toast=False,
+                dedupe_key=f"winsec:{title}",
+            )
+        except Exception:
+            logger.exception("Failed to emit Windows security notification")
+
     def get_protection_summary(self) -> dict[str, bool]:
         """Compact booleans for dashboard overview."""
         status = self.get_full_status()
@@ -371,6 +398,10 @@ class WindowsDefenderService:
             self._log("Defender quick scan started")
             with self._cache_lock:
                 self._cached_at = 0.0
+            self._emit_scan_notification(
+                title="Quick Scan Started",
+                message="Windows Defender quick scan is running.",
+            )
             return WindowsSecurityActionResponse(
                 message="Windows Defender quick scan started",
                 job_started=True,
@@ -391,6 +422,11 @@ class WindowsDefenderService:
             self._log("Defender signatures updated")
             with self._cache_lock:
                 self._cached_at = 0.0
+            self._emit_scan_notification(
+                title="Signatures Updated",
+                message="Windows Defender threat signatures were updated successfully.",
+                category_scan=False,
+            )
             return WindowsSecurityActionResponse(
                 message="Windows Defender signatures updated successfully",
                 job_started=False,

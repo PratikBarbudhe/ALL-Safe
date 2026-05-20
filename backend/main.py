@@ -9,9 +9,8 @@ from api import api_router
 from config import settings
 from models.system_models import SystemStatsResponse
 from monitoring.system_monitor import SystemMonitor
-from services.ransomware_service import ransomware_service
-from services.threat_log_service import threat_log_service
-from services.usb_service import usb_service
+from services.app_lifecycle_service import app_lifecycle_service
+from services.performance_monitor_service import performance_monitor_service
 from utils.exceptions import (
     AllSafeError,
     DashboardServiceError,
@@ -22,11 +21,12 @@ from utils.exceptions import (
     RansomwareMonitorError,
     RansomwareServiceError,
     ThreatLogServiceError,
+    NotificationServiceError,
+    AiAnalysisServiceError,
+    SettingsServiceError,
     WindowsSecurityServiceError,
     UsbMonitorError,
 )
-from utils.logging_config import setup_logging
-
 logger = logging.getLogger(__name__)
 
 
@@ -36,22 +36,9 @@ def get_system_monitor() -> SystemMonitor:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    setup_logging(logging.DEBUG if settings.debug else logging.INFO)
-    logger.info("Starting %s v%s", settings.app_name, settings.app_version)
-    usb_service.start_background_monitor()
-    try:
-        threat_log_service.start_background_monitor()
-    except (FileMonitorError, ThreatLogServiceError) as exc:
-        logger.error("Threat monitoring failed to start: %s", exc)
-    try:
-        ransomware_service.bootstrap_if_enabled()
-    except (RansomwareMonitorError, RansomwareServiceError) as exc:
-        logger.error("Ransomware protection failed to start: %s", exc)
+    app_lifecycle_service.startup()
     yield
-    ransomware_service.stop_monitoring()
-    threat_log_service.stop_background_monitor()
-    usb_service.stop_background_monitor()
-    logger.info("Shutting down %s", settings.app_name)
+    app_lifecycle_service.shutdown(keep_background=False)
 
 
 app = FastAPI(
@@ -70,6 +57,15 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+@app.middleware("http")
+async def performance_tracking_middleware(request: Request, call_next):
+    if request.url.path.startswith(("/api", "/dashboard", "/threats", "/app")) or (
+        request.url.path.count("/") <= 2 and request.method == "GET"
+    ):
+        performance_monitor_service.record_api_poll()
+    return await call_next(request)
 
 
 @app.get(
@@ -181,6 +177,39 @@ async def ransomware_service_error_handler(
     return JSONResponse(
         status_code=400,
         content={"detail": str(exc), "error": "ransomware_error"},
+    )
+
+
+@app.exception_handler(SettingsServiceError)
+async def settings_service_error_handler(
+    _request: Request, exc: SettingsServiceError
+) -> JSONResponse:
+    logger.error("Settings service error: %s", exc)
+    return JSONResponse(
+        status_code=400,
+        content={"detail": str(exc), "error": "settings_error"},
+    )
+
+
+@app.exception_handler(AiAnalysisServiceError)
+async def ai_analysis_service_error_handler(
+    _request: Request, exc: AiAnalysisServiceError
+) -> JSONResponse:
+    logger.error("AI analysis service error: %s", exc)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": str(exc), "error": "ai_analysis_unavailable"},
+    )
+
+
+@app.exception_handler(NotificationServiceError)
+async def notification_service_error_handler(
+    _request: Request, exc: NotificationServiceError
+) -> JSONResponse:
+    logger.error("Notification service error: %s", exc)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": str(exc), "error": "notification_unavailable"},
     )
 
 

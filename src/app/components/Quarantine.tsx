@@ -12,6 +12,8 @@ import {
   FileText,
 } from 'lucide-react';
 import { useQuarantine } from '@/hooks/useQuarantine';
+import { useModuleAlerts } from '@/contexts/NotificationContext';
+import NotificationAlertStrip from './NotificationAlertStrip';
 import { formatQuarantineSize, type QuarantineItemViewModel } from '@/lib/api';
 
 const getRiskBadge = (risk: string) => {
@@ -116,6 +118,8 @@ export default function Quarantine() {
     exportCsv,
   } = useQuarantine();
 
+  const { criticalCount, latest: quarantineAlert } = useModuleAlerts('Quarantine');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [detailsItem, setDetailsItem] = useState<QuarantineItemViewModel | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
@@ -166,6 +170,13 @@ export default function Quarantine() {
             Retry
           </button>
         </div>
+      )}
+
+      {criticalCount > 0 && quarantineAlert && (
+        <NotificationAlertStrip
+          severity={quarantineAlert.severity}
+          message={`${criticalCount} quarantine alert${criticalCount === 1 ? '' : 's'} — ${quarantineAlert.title}`}
+        />
       )}
 
       {notice && (

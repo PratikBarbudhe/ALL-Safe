@@ -10,6 +10,10 @@ logs/*.log
 data/threat_logs.db
 data/quarantine.db
 data/ransomware.db
+data/notifications.db
+data/ai_analysis.db
+data/settings.json.bak
+data/settings.json.corrupt
 data/ransomware_settings.json
 quarantine/files/*
 !quarantine/files/.gitkeep

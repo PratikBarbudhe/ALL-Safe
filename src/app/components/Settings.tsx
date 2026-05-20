@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import {
   Settings as SettingsIcon,
   Shield,
@@ -7,18 +8,29 @@ import {
   Database,
   RefreshCw,
   AlertTriangle,
+  Upload,
 } from 'lucide-react';
 import { useWindowsSecurity } from '@/hooks/useWindowsSecurity';
-import { windowsStatusColors, windowsStatusLabel } from '@/lib/api';
+import { useSettingsContext } from '@/contexts/SettingsContext';
+import {
+  settingsSaveStatusColors,
+  settingsSaveStatusLabel,
+  windowsStatusColors,
+  windowsStatusLabel,
+} from '@/lib/api';
 
 const SettingToggle = ({
   title,
   description,
-  defaultChecked = false,
+  checked,
+  disabled,
+  onChange,
 }: {
   title: string;
   description: string;
-  defaultChecked?: boolean;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (value: boolean) => void;
 }) => (
   <div
     className="flex items-center justify-between p-4 rounded-lg"
@@ -32,11 +44,21 @@ const SettingToggle = ({
         {description}
       </p>
     </div>
-    <div className="relative inline-block w-12 h-6">
-      <input type="checkbox" className="sr-only peer" defaultChecked={defaultChecked} readOnly />
-      <div className="w-12 h-6 rounded-full peer-checked:bg-green-500 bg-gray-600 transition-colors cursor-default"></div>
-      <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full peer-checked:translate-x-6 transition-transform"></div>
-    </div>
+    <label className="relative inline-block w-12 h-6 cursor-pointer">
+      <input
+        type="checkbox"
+        className="sr-only peer"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <div
+        className={`w-12 h-6 rounded-full transition-colors ${checked ? 'bg-green-500' : 'bg-gray-600'} ${disabled ? 'opacity-50' : ''}`}
+      />
+      <div
+        className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform ${checked ? 'translate-x-6' : ''}`}
+      />
+    </label>
   </div>
 );
 
@@ -80,6 +102,19 @@ const OsStatusRow = ({
 };
 
 export default function Settings() {
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const {
+    settings,
+    saveStatus,
+    isLoading: settingsLoading,
+    isSaving,
+    error: settingsError,
+    queueUpdate,
+    reset,
+    exportConfig,
+    importConfig,
+  } = useSettingsContext();
+
   const {
     status: winSec,
     isLoading,
@@ -90,6 +125,10 @@ export default function Settings() {
     runQuickScan,
     runSignatureUpdate,
   } = useWindowsSecurity();
+
+  const disabled = settingsLoading || isSaving || !settings;
+  const statusColors = settingsSaveStatusColors(saveStatus);
+  const statusLabel = settingsSaveStatusLabel(saveStatus);
 
   return (
     <div
@@ -117,6 +156,15 @@ export default function Settings() {
         </div>
       )}
 
+      {settingsError && (
+        <div
+          className="mb-4 p-3 rounded-lg border text-sm"
+          style={{ backgroundColor: '#EF444420', borderColor: '#EF4444', color: '#FCA5A5' }}
+        >
+          {settingsError}
+        </div>
+      )}
+
       {notice && (
         <div
           className="mb-4 p-3 rounded-lg border text-sm"
@@ -132,16 +180,26 @@ export default function Settings() {
 
       <div
         className="transition-opacity duration-300"
-        style={{ opacity: isLoading ? 0.6 : isActing ? 0.85 : 1 }}
+        style={{ opacity: isLoading || settingsLoading ? 0.6 : isActing || isSaving ? 0.85 : 1 }}
       >
         {/* Header */}
-        <div className="mb-6">
-          <h2 className="text-2xl mb-1" style={{ color: '#F8FAFC' }}>
-            Settings
-          </h2>
-          <p className="text-sm" style={{ color: '#94A3B8' }}>
-            Configure your security preferences and system settings
-          </p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl mb-1" style={{ color: '#F8FAFC' }}>
+              Settings
+            </h2>
+            <p className="text-sm" style={{ color: '#94A3B8' }}>
+              Configure your security preferences and system settings
+            </p>
+          </div>
+          {statusLabel && (
+            <span
+              className="px-3 py-1 rounded-full text-xs shrink-0 transition-colors duration-300"
+              style={{ backgroundColor: statusColors.bg, color: statusColors.color }}
+            >
+              {isSaving ? 'Saving…' : statusLabel}
+            </span>
+          )}
         </div>
 
         {/* Security Settings — live Windows OS status */}
@@ -210,12 +268,30 @@ export default function Settings() {
             <SettingToggle
               title="Ransomware Protection"
               description="AllSafe heuristic ransomware monitoring (see Ransomware page)"
-              defaultChecked={true}
+              checked={settings?.ransomware.monitoring_enabled ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('ransomware', 'monitoring_enabled', v)}
             />
             <SettingToggle
               title="USB Auto-scan"
               description="Automatically scan USB devices when connected"
-              defaultChecked={true}
+              checked={settings?.usb.auto_scan_on_connect ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('usb', 'auto_scan_on_connect', v)}
+            />
+            <SettingToggle
+              title="USB Monitoring"
+              description="Background USB device attach/detach monitoring"
+              checked={settings?.usb.monitoring_enabled ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('usb', 'monitoring_enabled', v)}
+            />
+            <SettingToggle
+              title="Trusted USB Devices Only"
+              description="Flag devices not on the trusted allow list"
+              checked={settings?.usb.trusted_devices_only ?? false}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('usb', 'trusted_devices_only', v)}
             />
           </div>
         </div>
@@ -289,12 +365,23 @@ export default function Settings() {
             <SettingToggle
               title="Scan Archives"
               description="Scan inside ZIP, RAR, and other archive files"
-              defaultChecked={true}
+              checked={settings?.scan.scan_archives ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('scan', 'scan_archives', v)}
             />
             <SettingToggle
               title="Heuristic Analysis"
               description="Detect unknown threats using behavioral patterns"
-              defaultChecked={true}
+              checked={settings?.scan.heuristic_analysis ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('scan', 'heuristic_analysis', v)}
+            />
+            <SettingToggle
+              title="Auto-start Monitoring"
+              description="Start filesystem threat monitoring when AllSafe launches"
+              checked={settings?.system.auto_start_monitoring ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('system', 'auto_start_monitoring', v)}
             />
           </div>
         </div>
@@ -312,22 +399,51 @@ export default function Settings() {
             <SettingToggle
               title="Threat Notifications"
               description="Alert when threats are detected"
-              defaultChecked={true}
+              checked={settings?.notifications.threat_notifications ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('notifications', 'threat_notifications', v)}
             />
             <SettingToggle
               title="Scan Complete Notifications"
               description="Notify when scans finish"
-              defaultChecked={true}
+              checked={settings?.notifications.scan_complete_notifications ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('notifications', 'scan_complete_notifications', v)}
             />
             <SettingToggle
               title="Update Notifications"
               description="Alert when updates are available"
-              defaultChecked={true}
+              checked={settings?.notifications.update_notifications ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('notifications', 'update_notifications', v)}
+            />
+            <SettingToggle
+              title="Desktop Notifications"
+              description="Show Windows toast alerts for security events"
+              checked={settings?.notifications.desktop_notifications ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('notifications', 'desktop_notifications', v)}
+            />
+            <SettingToggle
+              title="Critical Alert Popups"
+              description="Display modal alerts for critical severity events"
+              checked={settings?.notifications.critical_alert_popups ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('notifications', 'critical_alert_popups', v)}
+            />
+            <SettingToggle
+              title="Sound Alerts"
+              description="Play sounds with desktop notifications (when supported)"
+              checked={settings?.notifications.sound_alerts ?? false}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('notifications', 'sound_alerts', v)}
             />
             <SettingToggle
               title="Weekly Reports"
-              description="Receive weekly security summary emails"
-              defaultChecked={false}
+              description="Local weekly summary preference (stored only)"
+              checked={settings?.notifications.weekly_reports ?? false}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('notifications', 'weekly_reports', v)}
             />
           </div>
         </div>
@@ -345,17 +461,23 @@ export default function Settings() {
             <SettingToggle
               title="Automatic Updates"
               description="Automatically download and install updates"
-              defaultChecked={true}
+              checked={settings?.update.automatic_updates ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('update', 'automatic_updates', v)}
             />
             <SettingToggle
               title="Auto-update Threat Database"
               description="Keep threat signatures up to date"
-              defaultChecked={true}
+              checked={settings?.update.auto_update_threat_database ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('update', 'auto_update_threat_database', v)}
             />
             <SettingToggle
               title="Beta Updates"
               description="Receive early access to new features"
-              defaultChecked={false}
+              checked={settings?.update.beta_updates ?? false}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('update', 'beta_updates', v)}
             />
             <div className="p-4 rounded-lg" style={{ backgroundColor: '#0F172A' }}>
               <div className="flex items-center justify-between mb-2">
@@ -404,11 +526,13 @@ export default function Settings() {
                   color: '#F8FAFC',
                   border: '1px solid #334155',
                 }}
-                defaultValue="dark"
+                value={settings?.ui.theme ?? 'dark'}
+                disabled={disabled}
+                onChange={(e) => queueUpdate('ui', 'theme', e.target.value)}
               >
-                <option>Dark (Default)</option>
-                <option>Light</option>
-                <option>Auto (System)</option>
+                <option value="dark">Dark (Default)</option>
+                <option value="light">Light</option>
+                <option value="auto">Auto (System)</option>
               </select>
             </div>
             <div className="p-4 rounded-lg" style={{ backgroundColor: '#0F172A' }}>
@@ -420,12 +544,15 @@ export default function Settings() {
                   <button
                     key={color}
                     type="button"
+                    disabled={disabled}
+                    onClick={() => queueUpdate('ui', 'accent_color', color)}
                     className="w-10 h-10 rounded-lg border-2"
                     style={{
                       backgroundColor: color,
-                      borderColor: color === '#3B82F6' ? '#FFFFFF' : 'transparent',
+                      borderColor:
+                        (settings?.ui.accent_color ?? '#3B82F6') === color ? '#FFFFFF' : 'transparent',
                     }}
-                  ></button>
+                  />
                 ))}
               </div>
             </div>
@@ -442,13 +569,78 @@ export default function Settings() {
             <SettingToggle
               title="Debug Mode"
               description="Enable detailed logging for troubleshooting"
-              defaultChecked={false}
+              checked={settings?.advanced.debug_mode ?? false}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('advanced', 'debug_mode', v)}
+            />
+            <SettingToggle
+              title="Verbose Logging"
+              description="Write DEBUG-level entries to backend logs"
+              checked={settings?.logging.verbose_logging ?? false}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('logging', 'verbose_logging', v)}
+            />
+            <SettingToggle
+              title="Background Monitoring"
+              description="Keep protection services active while app is running"
+              checked={settings?.system.background_monitoring ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('system', 'background_monitoring', v)}
+            />
+            <SettingToggle
+              title="Minimize to System Tray"
+              description="Hide window to tray instead of exiting when closed"
+              checked={settings?.system.minimize_to_tray ?? true}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('system', 'minimize_to_tray', v)}
+            />
+            <SettingToggle
+              title="Start with Windows"
+              description="Launch AllSafe when Windows starts (registry Run key)"
+              checked={settings?.system.auto_start_with_windows ?? false}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('system', 'auto_start_with_windows', v)}
             />
             <SettingToggle
               title="Send Anonymous Usage Data"
               description="Help improve AllSafe by sharing usage statistics"
-              defaultChecked={false}
+              checked={settings?.advanced.send_anonymous_usage_data ?? false}
+              disabled={disabled}
+              onChange={(v) => queueUpdate('advanced', 'send_anonymous_usage_data', v)}
             />
+            <div className="p-4 rounded-lg flex flex-wrap gap-2" style={{ backgroundColor: '#0F172A' }}>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => void exportConfig()}
+                className="px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+                style={{ backgroundColor: '#334155', color: '#F8FAFC' }}
+              >
+                <Download className="w-4 h-4" />
+                Export Config
+              </button>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => importInputRef.current?.click()}
+                className="px-4 py-2 rounded-lg text-sm flex items-center gap-2"
+                style={{ backgroundColor: '#334155', color: '#F8FAFC' }}
+              >
+                <Upload className="w-4 h-4" />
+                Import Config
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void importConfig(file);
+                  e.target.value = '';
+                }}
+              />
+            </div>
             <div
               className="p-4 rounded-lg border"
               style={{ backgroundColor: '#0F172A', borderColor: '#334155' }}
@@ -458,7 +650,9 @@ export default function Settings() {
               </p>
               <button
                 type="button"
-                className="w-full px-4 py-2 rounded-lg"
+                disabled={disabled}
+                onClick={() => void reset()}
+                className="w-full px-4 py-2 rounded-lg disabled:opacity-50"
                 style={{ backgroundColor: '#EF4444', color: '#FFFFFF' }}
               >
                 Reset All Settings

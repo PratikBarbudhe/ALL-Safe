@@ -145,7 +145,7 @@ class ThreatLogService:
         description: str,
     ) -> None:
         try:
-            self._insert_event(
+            entry = self._insert_event(
                 file_path=file_path,
                 event_type=event_type,
                 severity=severity,
@@ -153,6 +153,13 @@ class ThreatLogService:
                 process_name=process_name,
                 status=status,
                 description=description,
+            )
+            self._notify_threat_detection(
+                severity=entry.severity,
+                category=entry.category,
+                description=entry.description,
+                file_path=entry.file_path,
+                status=entry.status,
             )
         except Exception:
             logger.exception("Failed to record threat event for %s", file_path)
@@ -205,7 +212,7 @@ class ThreatLogService:
             description,
         )
         self._sync_dashboard_counters()
-        return ThreatLogEntry(
+        entry = ThreatLogEntry(
             id=row_id,
             timestamp=timestamp,
             file_path=file_path,
@@ -216,6 +223,38 @@ class ThreatLogService:
             status=status,
             description=description,
         )
+        return entry
+
+    def _notify_threat_detection(
+        self,
+        *,
+        severity: str,
+        category: str,
+        description: str,
+        file_path: str,
+        status: str,
+    ) -> None:
+        if severity.lower() in ("low",):
+            return
+        try:
+            from models.notification_models import NotificationCategory
+            from services.notification_service import (
+                map_threat_severity_to_notification,
+                notification_service,
+            )
+
+            notification_service.emit(
+                title=f"Threat: {category}",
+                message=description,
+                severity=map_threat_severity_to_notification(severity),
+                category=NotificationCategory.THREAT_DETECTION.value,
+                source_module="threat_monitor",
+                action_required=severity.lower() in ("high", "critical"),
+                metadata={"file_path": file_path, "status": status},
+                dedupe_key=f"threat:{file_path}:{category}:{description[:80]}",
+            )
+        except Exception:
+            logger.exception("Failed to emit threat notification")
 
     def log_security_event(
         self,

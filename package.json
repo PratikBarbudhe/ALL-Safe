@@ -1,7 +1,7 @@
 {
   "name": "allsafe",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "build:backend": "powershell -ExecutionPolicy Bypass -File scripts/build_backend.ps1",
+    "build:production": "npm run build:backend && npm run tauri:build"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

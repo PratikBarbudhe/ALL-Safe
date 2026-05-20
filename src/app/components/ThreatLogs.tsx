@@ -1,5 +1,7 @@
 import { FileText, Search, Download, AlertTriangle, ShieldCheck, XCircle, RefreshCw } from 'lucide-react';
 import { useThreatLogs } from '@/hooks/useThreatLogs';
+import { useModuleAlerts } from '@/contexts/NotificationContext';
+import NotificationAlertStrip from './NotificationAlertStrip';
 
 const getSeverityBadge = (severity: string) => {
   switch (severity) {
@@ -81,6 +83,8 @@ export default function ThreatLogs() {
     goToPage,
   } = useThreatLogs();
 
+  const { criticalCount, latest: threatAlert } = useModuleAlerts('Threat Detection');
+
   const startIndex = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const endIndex = Math.min(page * pageSize, total);
 
@@ -125,6 +129,13 @@ export default function ThreatLogs() {
             Retry
           </button>
         </div>
+      )}
+
+      {criticalCount > 0 && threatAlert && (
+        <NotificationAlertStrip
+          severity={threatAlert.severity}
+          message={`${criticalCount} unread threat alert${criticalCount === 1 ? '' : 's'} — ${threatAlert.title}`}
+        />
       )}
 
       <div

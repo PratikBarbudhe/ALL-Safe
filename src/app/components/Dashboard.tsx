@@ -5,6 +5,9 @@ import { useWindowsSecurity } from '@/hooks/useWindowsSecurity';
 import type { RiskLevel } from '@/lib/api';
 import { windowsStatusColors, windowsStatusLabel } from '@/lib/api';
 import { formatBytesPerSecond, formatNumber, formatPercent } from '@/lib/format';
+import { useModuleAlerts } from '@/contexts/NotificationContext';
+import NotificationAlertStrip from './NotificationAlertStrip';
+import AppDiagnosticsCard from './AppDiagnosticsCard';
 
 const StatCard = ({
   icon: Icon,
@@ -72,6 +75,8 @@ export default function Dashboard() {
     notice: winNotice,
   } = useWindowsSecurity();
 
+  const { criticalCount, latest: latestAlert } = useModuleAlerts();
+
   const threatChartData = threatHistory.length > 0 ? threatHistory : [{ time: '—', threats: 0 }];
   const performanceChartData =
     performanceHistory.length > 0 ? performanceHistory : [{ time: '—', cpu: 0, ram: 0 }];
@@ -104,6 +109,13 @@ export default function Dashboard() {
         </div>
       )}
 
+      {criticalCount > 0 && latestAlert && (
+        <NotificationAlertStrip
+          severity={latestAlert.severity}
+          message={`${criticalCount} high-priority alert${criticalCount === 1 ? '' : 's'} — ${latestAlert.title}`}
+        />
+      )}
+
       {winNotice && (
         <div
           className="mb-4 p-3 rounded-lg border text-sm transition-opacity duration-300"
@@ -116,6 +128,8 @@ export default function Dashboard() {
           {winNotice.message}
         </div>
       )}
+
+      <AppDiagnosticsCard />
 
       <div
         className="transition-opacity duration-300 ease-in-out"

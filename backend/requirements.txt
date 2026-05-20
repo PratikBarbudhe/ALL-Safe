@@ -6,3 +6,4 @@ python-multipart>=0.0.20,<1.0.0
 pywin32>=308,<400
 WMI>=1.5.1,<2.0.0
 watchdog>=4.0.0,<7.0.0
+winotify>=1.1.0,<2.0.0

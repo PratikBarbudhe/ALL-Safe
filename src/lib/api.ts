@@ -111,6 +111,500 @@ export const THREAT_REFRESH_INTERVAL_MS = 3000;
 export const QUARANTINE_REFRESH_INTERVAL_MS = 3000;
 export const RANSOMWARE_REFRESH_INTERVAL_MS = 3000;
 export const WINDOWS_SECURITY_REFRESH_INTERVAL_MS = 5000;
+export const NOTIFICATION_REFRESH_INTERVAL_MS = 3000;
+export const AI_ANALYSIS_REFRESH_INTERVAL_MS = 10000;
+
+export type RiskPosture = 'secure' | 'warning' | 'high_risk' | 'critical_risk';
+
+export interface AiInsight {
+  id: string;
+  title: string;
+  message: string;
+  category: string;
+  severity: string;
+  confidence: string;
+  icon_hint: string;
+}
+
+export interface AiRecommendation {
+  id: string;
+  title: string;
+  message: string;
+  priority: string;
+  category: string;
+  action_required?: boolean;
+}
+
+export interface CategoryScore {
+  category: string;
+  score: number;
+  risk: string;
+  summary: string;
+}
+
+export interface ThreatProbabilitySlice {
+  name: string;
+  value: number;
+  fill: string;
+}
+
+export interface ThreatTrendPoint {
+  time: string;
+  malware: number;
+  ransomware: number;
+  phishing: number;
+}
+
+export interface TopActiveRisk {
+  name: string;
+  severity: string;
+  confidence: string;
+  description: string;
+}
+
+export interface EngineStats {
+  detection_rate_percent: number;
+  threats_analyzed: number;
+  estimated_false_positive_percent: number;
+  last_analysis_at: string;
+  analysis_runs_total: number;
+  engine_status: string;
+}
+
+export interface AiAnalysisOverview {
+  overall_score: number;
+  risk_posture: RiskPosture;
+  posture_label: string;
+  score_summary: string;
+  trend: string;
+  trend_delta: number;
+  confidence: string;
+  threat_probability: ThreatProbabilitySlice[];
+  category_scores: CategoryScore[];
+  insights: AiInsight[];
+  recommendations: AiRecommendation[];
+  threat_trend: ThreatTrendPoint[];
+  top_active_risks: TopActiveRisk[];
+  engine_stats: EngineStats;
+  collected_at: string;
+}
+
+export interface AnalysisHistoryEntry {
+  id: number;
+  timestamp: string;
+  overall_score: number;
+  risk_posture: RiskPosture;
+  summary: string;
+  insight_count: number;
+}
+
+export interface AnalysisHistoryResponse {
+  history: AnalysisHistoryEntry[];
+  total: number;
+}
+
+export function aiPostureColors(posture: string): { bg: string; color: string; label: string } {
+  switch (posture) {
+    case 'secure':
+      return { bg: '#10B98120', color: '#10B981', label: 'Secure' };
+    case 'warning':
+      return { bg: '#F59E0B20', color: '#F59E0B', label: 'Warning' };
+    case 'high_risk':
+      return { bg: '#F9731620', color: '#F97316', label: 'High Risk' };
+    case 'critical_risk':
+      return { bg: '#EF444420', color: '#EF4444', label: 'Critical Risk' };
+    default:
+      return { bg: '#334155', color: '#94A3B8', label: 'Unknown' };
+  }
+}
+
+export async function fetchAiAnalysisOverview(
+  refresh = false,
+): Promise<AiAnalysisOverview> {
+  return request<AiAnalysisOverview>(
+    `/ai-analysis/overview${refresh ? '?refresh=true' : ''}`,
+  );
+}
+
+export async function fetchAiRiskScore(): Promise<{
+  overall_score: number;
+  risk_posture: RiskPosture;
+  trend: string;
+  trend_delta: number;
+  confidence: string;
+  top_active_risks: TopActiveRisk[];
+}> {
+  return request('/ai-analysis/risk-score');
+}
+
+export async function fetchAiRecommendations(): Promise<{
+  recommendations: AiRecommendation[];
+  total: number;
+}> {
+  return request('/ai-analysis/recommendations');
+}
+
+export async function fetchAiActivitySummary(): Promise<{
+  summary: string;
+  events_last_hour: number;
+  events_last_24h: number;
+  suspicious_activity_level: string;
+  category_breakdown: Record<string, number>;
+}> {
+  return request('/ai-analysis/activity-summary');
+}
+
+export async function fetchAiAnalysisHistory(
+  limit = 20,
+): Promise<AnalysisHistoryResponse> {
+  return request<AnalysisHistoryResponse>(`/ai-analysis/history?limit=${limit}`);
+}
+
+export async function runAiAnalysis(): Promise<{
+  status: string;
+  message: string;
+  overview: AiAnalysisOverview;
+}> {
+  return request('/ai-analysis/run', { method: 'POST' });
+}
+
+export interface SystemSettings {
+  auto_start_monitoring: boolean;
+  auto_start_with_windows: boolean;
+  minimize_to_tray: boolean;
+  background_monitoring: boolean;
+}
+
+export interface NotificationSettingsConfig {
+  desktop_notifications: boolean;
+  threat_notifications: boolean;
+  scan_complete_notifications: boolean;
+  update_notifications: boolean;
+  weekly_reports: boolean;
+  critical_alert_popups: boolean;
+  sound_alerts: boolean;
+  notification_retention_days: number;
+}
+
+export interface RansomwareConfigSettings {
+  monitoring_enabled: boolean;
+  auto_quarantine: boolean;
+  sensitivity_level: string;
+  protected_folders: string[];
+}
+
+export interface UsbSettingsConfig {
+  monitoring_enabled: boolean;
+  trusted_devices_only: boolean;
+  alert_unknown_devices: boolean;
+  auto_scan_on_connect: boolean;
+}
+
+export interface AiAnalysisSettingsConfig {
+  auto_analysis: boolean;
+  analysis_interval_seconds: number;
+  risk_threshold: number;
+}
+
+export interface DashboardSettingsConfig {
+  refresh_interval_ms: number;
+  chart_history_limit: number;
+}
+
+export interface QuarantineSettingsConfig {
+  auto_quarantine_threats: boolean;
+  confirm_before_restore: boolean;
+  confirm_before_delete: boolean;
+}
+
+export interface LoggingSettingsConfig {
+  log_retention_days: number;
+  verbose_logging: boolean;
+}
+
+export interface ScanSettingsConfig {
+  scan_archives: boolean;
+  heuristic_analysis: boolean;
+}
+
+export interface UpdateSettingsConfig {
+  automatic_updates: boolean;
+  auto_update_threat_database: boolean;
+  beta_updates: boolean;
+}
+
+export interface UiSettingsConfig {
+  theme: string;
+  accent_color: string;
+}
+
+export interface AdvancedSettingsConfig {
+  debug_mode: boolean;
+  send_anonymous_usage_data: boolean;
+}
+
+export interface AllSafeSettings {
+  version: number;
+  system: SystemSettings;
+  notifications: NotificationSettingsConfig;
+  ransomware: RansomwareConfigSettings;
+  usb: UsbSettingsConfig;
+  ai_analysis: AiAnalysisSettingsConfig;
+  dashboard: DashboardSettingsConfig;
+  quarantine: QuarantineSettingsConfig;
+  logging: LoggingSettingsConfig;
+  scan: ScanSettingsConfig;
+  update: UpdateSettingsConfig;
+  ui: UiSettingsConfig;
+  advanced: AdvancedSettingsConfig;
+}
+
+export type SettingsUpdatePayload = {
+  [K in keyof Omit<AllSafeSettings, 'version'>]?: Partial<AllSafeSettings[K]>;
+};
+
+export interface SettingsResponse {
+  settings: AllSafeSettings;
+  modified: boolean;
+  last_saved_at: string;
+}
+
+export function settingsSaveStatusLabel(status: string): string {
+  switch (status) {
+    case 'saved':
+      return 'Saved';
+    case 'modified':
+      return 'Modified';
+    case 'error':
+      return 'Error';
+    case 'default':
+      return 'Defaults restored';
+    default:
+      return '';
+  }
+}
+
+export function settingsSaveStatusColors(status: string): { bg: string; color: string } {
+  switch (status) {
+    case 'saved':
+      return { bg: '#10B98120', color: '#10B981' };
+    case 'modified':
+      return { bg: '#F59E0B20', color: '#F59E0B' };
+    case 'error':
+      return { bg: '#EF444420', color: '#EF4444' };
+    case 'default':
+      return { bg: '#3B82F620', color: '#3B82F6' };
+    default:
+      return { bg: '#334155', color: '#94A3B8' };
+  }
+}
+
+export async function fetchSettings(): Promise<SettingsResponse> {
+  return request<SettingsResponse>('/settings');
+}
+
+export async function updateSettings(
+  patch: SettingsUpdatePayload,
+): Promise<SettingsResponse> {
+  return request<SettingsResponse>('/settings/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function resetSettings(): Promise<{
+  status: string;
+  message: string;
+  settings: AllSafeSettings | null;
+}> {
+  return request('/settings/reset', { method: 'POST' });
+}
+
+export async function exportSettings(): Promise<{
+  exported_at: string;
+  settings: AllSafeSettings;
+}> {
+  return request('/settings/export', { method: 'POST' });
+}
+
+export async function importSettings(
+  settings: Record<string, unknown>,
+): Promise<{
+  status: string;
+  message: string;
+  settings: AllSafeSettings | null;
+}> {
+  return request('/settings/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ settings }),
+  });
+}
+
+export type AppHealthState = 'healthy' | 'degraded' | 'reconnecting' | 'background' | 'offline';
+
+export interface MonitorStatus {
+  name: string;
+  running: boolean;
+  healthy: boolean;
+  detail: string;
+}
+
+export interface AppStatus {
+  status: string;
+  version: string;
+  uptime_seconds: number;
+  background_mode: boolean;
+  window_visible: boolean;
+  monitors: MonitorStatus[];
+  databases: Record<string, boolean>;
+  active_threads: number;
+  warmup_complete: boolean;
+  last_watchdog_check: string;
+}
+
+export interface AppPerformance {
+  process_cpu_percent: number;
+  process_memory_mb: number;
+  process_threads: number;
+  status: string;
+  anomalies: string[];
+  poll_throttle_active: boolean;
+  collected_at: string;
+}
+
+export function appHealthColors(state: AppHealthState): { bg: string; color: string; label: string } {
+  switch (state) {
+    case 'healthy':
+      return { bg: '#10B98120', color: '#10B981', label: 'Healthy' };
+    case 'degraded':
+      return { bg: '#F59E0B20', color: '#F59E0B', label: 'Degraded' };
+    case 'reconnecting':
+      return { bg: '#3B82F620', color: '#3B82F6', label: 'Reconnecting' };
+    case 'background':
+      return { bg: '#A855F720', color: '#A855F7', label: 'Background Mode' };
+    default:
+      return { bg: '#EF444420', color: '#EF4444', label: 'Offline' };
+  }
+}
+
+export async function fetchAppStatus(): Promise<AppStatus> {
+  return request<AppStatus>('/app/status');
+}
+
+export async function fetchAppPerformance(): Promise<AppPerformance> {
+  return request<AppPerformance>('/app/performance');
+}
+
+export async function restartAppMonitors(): Promise<{ status: string; message: string }> {
+  return request('/app/restart-monitors', { method: 'POST' });
+}
+
+export async function shutdownApp(): Promise<{ status: string; message: string }> {
+  return request('/app/shutdown', { method: 'POST' });
+}
+
+export async function setBackgroundMode(enabled: boolean): Promise<{ status: string; message: string }> {
+  return request(`/app/background-mode?enabled=${enabled}`, { method: 'POST' });
+}
+
+export async function setWindowVisibility(visible: boolean): Promise<{ status: string; message: string }> {
+  return request(`/app/window-visibility?visible=${visible}`, { method: 'POST' });
+}
+
+export async function checkBackendHealth(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/health`, { signal: AbortSignal.timeout(3000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export type NotificationSeverity = 'info' | 'warning' | 'high' | 'critical';
+
+export interface NotificationEntry {
+  id: number;
+  timestamp: string;
+  title: string;
+  message: string;
+  severity: NotificationSeverity;
+  category: string;
+  source_module: string;
+  read_status: boolean;
+  action_required: boolean;
+  metadata: Record<string, unknown>;
+}
+
+export interface NotificationListResponse {
+  notifications: NotificationEntry[];
+  total: number;
+  unread_count: number;
+}
+
+export interface UnreadCountResponse {
+  unread_count: number;
+}
+
+export function notificationSeverityColors(severity: string): {
+  bg: string;
+  color: string;
+} {
+  switch (severity) {
+    case 'info':
+      return { bg: '#3B82F620', color: '#3B82F6' };
+    case 'warning':
+      return { bg: '#F59E0B20', color: '#F59E0B' };
+    case 'high':
+      return { bg: '#F9731620', color: '#F97316' };
+    case 'critical':
+      return { bg: '#EF444420', color: '#EF4444' };
+    default:
+      return { bg: '#334155', color: '#94A3B8' };
+  }
+}
+
+export async function fetchNotifications(params?: {
+  limit?: number;
+  unread_only?: boolean;
+  category?: string;
+  severity?: string;
+}): Promise<NotificationListResponse> {
+  const qs = new URLSearchParams();
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.unread_only) qs.set('unread_only', 'true');
+  if (params?.category) qs.set('category', params.category);
+  if (params?.severity) qs.set('severity', params.severity);
+  const query = qs.toString();
+  return request<NotificationListResponse>(
+    `/notifications${query ? `?${query}` : ''}`,
+  );
+}
+
+export async function fetchUnreadNotificationCount(): Promise<UnreadCountResponse> {
+  return request<UnreadCountResponse>('/notifications/unread-count');
+}
+
+export async function markNotificationRead(
+  id: number,
+): Promise<{ id: number; read_status: boolean; status: string }> {
+  return request(`/notifications/mark-read/${id}`, { method: 'POST' });
+}
+
+export async function markAllNotificationsRead(): Promise<{
+  updated: number;
+  status: string;
+}> {
+  return request('/notifications/mark-all-read', { method: 'POST' });
+}
+
+export async function clearNotifications(): Promise<{
+  cleared: number;
+  status: string;
+}> {
+  return request('/notifications/clear', { method: 'DELETE' });
+}
 
 export interface DefenderStatus {
   available: boolean;

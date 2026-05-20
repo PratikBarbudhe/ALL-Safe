@@ -40,3 +40,15 @@ class RansomwareServiceError(AllSafeError):
 
 class WindowsSecurityServiceError(AllSafeError):
     """Raised when Windows security integration operations fail."""
+
+
+class NotificationServiceError(AllSafeError):
+    """Raised when notification persistence or delivery fails."""
+
+
+class AiAnalysisServiceError(AllSafeError):
+    """Raised when local security intelligence analysis fails."""
+
+
+class SettingsServiceError(AllSafeError):
+    """Raised when settings persistence or validation fails."""
