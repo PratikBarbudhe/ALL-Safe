@@ -1,0 +1,8 @@
+fastapi>=0.115.6,<1.0.0
+uvicorn[standard]>=0.32.1,<1.0.0
+psutil>=6.1.0,<8.0.0
+pydantic>=2.10.0,<3.0.0
+python-multipart>=0.0.20,<1.0.0
+pywin32>=308,<400
+WMI>=1.5.1,<2.0.0
+watchdog>=4.0.0,<7.0.0

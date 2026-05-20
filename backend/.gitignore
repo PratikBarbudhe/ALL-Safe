@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.env
+logs/*.log
+!logs/.gitkeep
+data/threat_logs.db
+data/quarantine.db
+data/ransomware.db
+data/ransomware_settings.json
+quarantine/files/*
+!quarantine/files/.gitkeep
+quarantine/metadata/*
+!quarantine/metadata/.gitkeep

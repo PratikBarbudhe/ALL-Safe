@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Vite
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/gen/
+
+# Env
+.env
+.env.*
+
+# Python backend
+backend/.venv/
+backend/**/__pycache__/
+backend/logs/*.log
